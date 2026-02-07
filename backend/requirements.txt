@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlmodel
+alembic
+apscheduler
+httpx
+aiomysql
+pydantic-settings
+python-multipart
+croniter
+greenlet
