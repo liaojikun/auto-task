@@ -35,6 +35,12 @@ class TestTemplate(SQLModel, table=True):
     jenkins_job_name: str
     default_env: str
     available_envs: List[str] = Field(default=[], sa_column=Column(JSON))
+    
+    # New fields
+    params: str = Field(default="{}", description="JSON string parameters for Jenkins")
+    auto_notify: bool = Field(default=False, description="Whether to send notifications automatically")
+    last_used: Optional[datetime] = Field(default=None)
+    
     notification_ids: List[int] = Field(default=[], sa_column=Column(JSON))
     
     # Relationships
@@ -61,6 +67,7 @@ class TaskExecution(SQLModel, table=True):
     start_time: datetime = Field(default_factory=datetime.utcnow)
     duration: Optional[int] = None
     allure_report_url: Optional[str] = None
+    should_notify: bool = Field(default=False)
     stats: Optional[Dict[str, int]] = Field(default=None, sa_column=Column(JSON))
     
     # Relationships

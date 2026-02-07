@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { TaskExecution, DashboardSummary } from './types';
+import type { TaskExecution, DashboardSummary } from './types';
 
 export const dashboardApi = {
   getSummary: async (): Promise<DashboardSummary> => {

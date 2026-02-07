@@ -13,7 +13,15 @@ async def get_session() -> AsyncSession:
     async with async_session() as session:
         yield session
 
+from sqlalchemy import text
+
 async def init_db():
     async with engine.begin() as conn:
         # await conn.run_sync(SQLModel.metadata.drop_all) # For dev only, be careful
         await conn.run_sync(SQLModel.metadata.create_all)
+        
+        # Temporary migration for new column
+        try:
+            await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN should_notify BOOLEAN DEFAULT FALSE"))
+        except Exception:
+            pass # Column likely exists

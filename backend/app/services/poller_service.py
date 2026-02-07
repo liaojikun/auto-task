@@ -104,6 +104,9 @@ class StatusPoller:
             await self._trigger_notification(session, task, template)
 
     async def _trigger_notification(self, session: AsyncSession, task: TaskExecution, template: TestTemplate):
+        if not task.should_notify:
+            return
+
         if not template.notification_ids:
             return
 

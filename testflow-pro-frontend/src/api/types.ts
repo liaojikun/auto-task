@@ -5,6 +5,8 @@ export interface TestTemplate {
   default_env: string;
   available_envs: string[]; // Backend sends JSON array
   description?: string;
+  params?: string;
+  auto_notify?: boolean;
 }
 
 export interface TaskStats {

@@ -75,10 +75,14 @@ Manage test task templates and link them to Jenkins jobs.
       "name": "Smoke Test - Backend",
       "jenkins_job_name": "backend-smoke-test",
       "default_env": "sit",
+      "params": "{\"tags\": \"@smoke\"}",
+      "auto_notify": true,
       "available_envs": ["dev", "sit", "uat"],
       "notification_ids": [1, 2]
     }
     ```
+    *   `params`: JSON string for Jenkins parameters.
+    *   `auto_notify`: Boolean to enable automatic notifications.
 
 ### 2.2 List Templates
 *   **URL**: `/templates/`

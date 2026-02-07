@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Play, RotateCcw, FileText, Bell, Zap, Clock, 
-  CheckCircle2, XCircle, Loader2, Check, X, Minus, 
-  Search, User, ChevronLeft, ChevronRight, Filter, Send 
+  Play, RotateCcw, FileText, Zap, Clock,
+  Loader2,
+  Search, User, ChevronLeft, ChevronRight, Send 
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { templateApi } from '../api/templates';
+import type { TestTemplate } from '../api/types';
 
 // --- Types & Mock Data ---
 
@@ -19,19 +21,6 @@ interface TaskResult {
   triggeredBy: string;
   stats: { total: number; passed: number; failed: number; skipped: number };
 }
-
-interface TemplateOption {
-  id: string;
-  name: string;
-  defaultEnv: string;
-  availableEnvs: string[];
-}
-
-const TEMPLATE_OPTIONS: TemplateOption[] = [
-  { id: '1', name: 'Backend API Regression', defaultEnv: 'sit', availableEnvs: ['dev', 'sit', 'uat'] },
-  { id: '2', name: 'Frontend E2E Daily', defaultEnv: 'dev', availableEnvs: ['dev', 'sit'] },
-  { id: '3', name: 'Payment Service Security', defaultEnv: 'uat', availableEnvs: ['sit', 'uat', 'prod'] },
-];
 
 const RUNNING_TASKS = [
   { id: 101, name: 'Smoke Test', buildId: '#452', status: 'running', progress: 65, env: 'dev', startTime: '10:00:00' },
@@ -58,8 +47,11 @@ const COMPLETED_TASKS: TaskResult[] = Array.from({ length: 25 }).map((_, i) => (
 
 export const Dashboard: React.FC = () => {
   // --- Quick Trigger State ---
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(TEMPLATE_OPTIONS[0].id);
-  const [selectedEnv, setSelectedEnv] = useState<string>(TEMPLATE_OPTIONS[0].defaultEnv);
+  const [templates, setTemplates] = useState<TestTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
+  const [selectedEnv, setSelectedEnv] = useState<string>('');
+  const [autoNotify, setAutoNotify] = useState<boolean>(true);
+  const [triggering, setTriggering] = useState(false);
 
   // --- History State ---
   const [searchTask, setSearchTask] = useState('');
@@ -67,15 +59,51 @@ export const Dashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
-  // Handle Template Change to update default Env
+  // Fetch Templates
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const data = await templateApi.getAll();
+        setTemplates(data);
+        if (data.length > 0) {
+          setSelectedTemplateId(data[0].id);
+          setSelectedEnv(data[0].default_env);
+          setAutoNotify(data[0].auto_notify ?? false);
+        }
+      } catch (error) {
+        console.error("Failed to fetch templates", error);
+      }
+    };
+    fetchTemplates();
+  }, []);
+
+  // Handle Template Change to update default Env and AutoNotify
   const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const tplId = e.target.value;
+    const tplId = Number(e.target.value);
     setSelectedTemplateId(tplId);
-    const tpl = TEMPLATE_OPTIONS.find(t => t.id === tplId);
-    if (tpl) setSelectedEnv(tpl.defaultEnv);
+    const tpl = templates.find(t => t.id === tplId);
+    if (tpl) {
+      setSelectedEnv(tpl.default_env);
+      setAutoNotify(tpl.auto_notify ?? false);
+    }
   };
 
-  const currentTemplate = TEMPLATE_OPTIONS.find(t => t.id === selectedTemplateId);
+  const handleTrigger = async () => {
+    if (!selectedTemplateId) return;
+    try {
+      setTriggering(true);
+      await templateApi.trigger(Number(selectedTemplateId), selectedEnv, autoNotify);
+      alert('任务已触发');
+      // Ideally refresh running tasks list here
+    } catch (error) {
+      console.error("Trigger failed", error);
+      alert('触发失败');
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  const currentTemplate = templates.find(t => t.id === Number(selectedTemplateId));
 
   // Filter & Pagination Logic
   const filteredTasks = COMPLETED_TASKS.filter(task => 
@@ -114,10 +142,12 @@ export const Dashboard: React.FC = () => {
                     value={selectedTemplateId}
                     onChange={handleTemplateChange}
                     className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-blue-500 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer font-medium"
+                    disabled={templates.length === 0}
                   >
-                    {TEMPLATE_OPTIONS.map(opt => (
+                    {templates.map(opt => (
                       <option key={opt.id} value={opt.id}>{opt.name}</option>
                     ))}
+                    {templates.length === 0 && <option>加载中...</option>}
                   </select>
                   <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={14} />
                 </div>
@@ -133,8 +163,9 @@ export const Dashboard: React.FC = () => {
                     value={selectedEnv}
                     onChange={(e) => setSelectedEnv(e.target.value)}
                     className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-blue-500 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer font-medium uppercase"
+                    disabled={!currentTemplate}
                   >
-                    {currentTemplate?.availableEnvs.map(env => (
+                    {currentTemplate?.available_envs.map(env => (
                       <option key={env} value={env}>{env}</option>
                     ))}
                   </select>
@@ -142,12 +173,31 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
 
+              <div className="flex items-center gap-2 pt-1">
+                 <input 
+                  type="checkbox" 
+                  id="dashAutoNotify" 
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" 
+                  checked={autoNotify}
+                  onChange={e => setAutoNotify(e.target.checked)}
+                 />
+                 <label htmlFor="dashAutoNotify" className="text-xs text-slate-600 select-none font-medium">任务完成后自动发送通知</label>
+              </div>
+
               <div className="pt-2">
-                <button className="group w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-3 rounded-xl text-sm font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-2">
-                  <span className="bg-white/20 p-1 rounded-full group-hover:bg-white/30 transition-colors">
-                     <Play size={14} className="fill-current" />
-                  </span>
-                  立即执行
+                <button 
+                  onClick={handleTrigger}
+                  disabled={triggering || !selectedTemplateId}
+                  className="group w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-3 rounded-xl text-sm font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {triggering ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <span className="bg-white/20 p-1 rounded-full group-hover:bg-white/30 transition-colors">
+                       <Play size={14} className="fill-current" />
+                    </span>
+                  )}
+                  {triggering ? '执行中...' : '立即执行'}
                 </button>
               </div>
             </div>
