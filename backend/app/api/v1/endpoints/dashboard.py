@@ -45,7 +45,8 @@ async def trigger_task(
         status=TaskStatus.QUEUED,
         trigger_type=TriggerType.MANUAL,
         should_notify=should_notify,
-        stats={"env": target_env}
+        execution_env=target_env,
+        triggered_by="admin"  # Placeholder
     )
     session.add(execution)
     await session.commit()

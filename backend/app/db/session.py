@@ -25,3 +25,22 @@ async def init_db():
             await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN should_notify BOOLEAN DEFAULT FALSE"))
         except Exception:
             pass # Column likely exists
+            
+        try:
+            await conn.execute(text("ALTER TABLE systemconfig ADD COLUMN name VARCHAR(255)"))
+        except Exception as e:
+            print(f"Migration warning: {e}") # Print error to help debug if it fails again
+            
+        # Temporary migration for TaskExecution new fields
+        try:
+            await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN execution_env VARCHAR(255)"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN suite_stats JSON"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN triggered_by VARCHAR(255)"))
+        except Exception:
+            pass

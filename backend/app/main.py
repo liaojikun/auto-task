@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.core.config import settings
-from app.api.v1.endpoints import notifications, templates, dashboard, schedules
+from app.api.v1.endpoints import notifications, templates, dashboard, schedules, system_config
 from app.db.session import init_db
 from app.services.poller_service import status_poller
 
@@ -33,3 +33,4 @@ app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifica
 app.include_router(templates.router, prefix=f"{settings.API_V1_STR}/templates", tags=["templates"])
 app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"])
 app.include_router(schedules.router, prefix=f"{settings.API_V1_STR}/schedules", tags=["schedules"])
+app.include_router(system_config.router, prefix=f"{settings.API_V1_STR}/system-configs", tags=["system-configs"])

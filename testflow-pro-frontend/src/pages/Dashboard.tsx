@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { templateApi } from '../api/templates';
+import { systemConfigApi } from '../api/systemConfig';
 import type { TestTemplate } from '../api/types';
 
 // --- Types & Mock Data ---
@@ -52,6 +53,7 @@ export const Dashboard: React.FC = () => {
   const [selectedEnv, setSelectedEnv] = useState<string>('');
   const [autoNotify, setAutoNotify] = useState<boolean>(true);
   const [triggering, setTriggering] = useState(false);
+  const [envOptions, setEnvOptions] = useState<string[]>([]); // New state for environment options
 
   // --- History State ---
   const [searchTask, setSearchTask] = useState('');
@@ -59,22 +61,32 @@ export const Dashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
-  // Fetch Templates
+  // Fetch Templates and System Configs
   useEffect(() => {
-    const fetchTemplates = async () => {
+    const fetchData = async () => {
       try {
-        const data = await templateApi.getAll();
-        setTemplates(data);
-        if (data.length > 0) {
-          setSelectedTemplateId(data[0].id);
-          setSelectedEnv(data[0].default_env);
-          setAutoNotify(data[0].auto_notify ?? false);
+        const [templatesData, systemConfigData] = await Promise.all([
+          templateApi.getAll(),
+          systemConfigApi.getAll()
+        ]);
+
+        setTemplates(templatesData);
+        if (templatesData.length > 0) {
+          setSelectedTemplateId(templatesData[0].id);
+          setSelectedEnv(templatesData[0].default_env);
+          setAutoNotify(templatesData[0].auto_notify ?? false);
         }
+
+        const envData = systemConfigData.data.find(item => item["ENV"]);
+        if (envData) {
+          setEnvOptions(envData["ENV"]);
+        }
+
       } catch (error) {
-        console.error("Failed to fetch templates", error);
+        console.error("Failed to fetch initial data", error);
       }
     };
-    fetchTemplates();
+    fetchData();
   }, []);
 
   // Handle Template Change to update default Env and AutoNotify
@@ -102,8 +114,6 @@ export const Dashboard: React.FC = () => {
       setTriggering(false);
     }
   };
-
-  const currentTemplate = templates.find(t => t.id === Number(selectedTemplateId));
 
   // Filter & Pagination Logic
   const filteredTasks = COMPLETED_TASKS.filter(task => 
@@ -163,11 +173,15 @@ export const Dashboard: React.FC = () => {
                     value={selectedEnv}
                     onChange={(e) => setSelectedEnv(e.target.value)}
                     className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-transparent hover:bg-white hover:border-slate-300 focus:bg-white focus:border-blue-500 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer font-medium uppercase"
-                    disabled={!currentTemplate}
+                    disabled={envOptions.length === 0}
                   >
-                    {currentTemplate?.available_envs.map(env => (
-                      <option key={env} value={env}>{env}</option>
-                    ))}
+                    {envOptions.length > 0 ? (
+                        envOptions.map(env => (
+                          <option key={env} value={env}>{env}</option>
+                        ))
+                    ) : (
+                        <option value="">加载中...</option>
+                    )}
                   </select>
                   <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={14} />
                 </div>

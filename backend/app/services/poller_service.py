@@ -96,7 +96,24 @@ class StatusPoller:
             jenkins_url = jenkins_service.base_url
             task.allure_report_url = f"{jenkins_url}/job/{template.jenkins_job_name}/{task.build_number}/allure/"
             
-            task.stats = {"total": 0, "passed": 0, "failed": 0, "skipped": 0} 
+            task.stats = {
+                "statistic": {
+                    "failed": 0,
+                    "broken": 0,
+                    "skipped": 0,
+                    "passed": 2,
+                    "unknown": 0,
+                    "total": 2
+                    },
+                "time": {
+                    "start": 1770545521341,
+                    "stop": 1770545521343,
+                    "duration": 2,
+                    "minDuration": 0,
+                    "maxDuration": 0,
+                    "sumDuration": 0
+                    }
+                } 
             
             session.add(task)
             await session.commit()

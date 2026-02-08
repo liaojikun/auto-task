@@ -1,3 +1,4 @@
+import json
 import httpx
 from app.core.config import settings
 
@@ -21,25 +22,45 @@ class JenkinsService:
                 return []
 
     async def trigger_job(self, job_name: str, params: dict = None):
-        """Trigger a build with parameters."""
         async with httpx.AsyncClient() as client:
             try:
-                # buildWithParameters if params, else build
+                base = self.base_url.rstrip('/')
+               # 1. 获取 Crumb
+                headers = {}
+                crumb_resp = await client.get(f"{base}/crumbIssuer/api/json", auth=self.auth)
+                if crumb_resp.status_code == 200:
+                    c_data = crumb_resp.json()
+                    headers[c_data['crumbRequestField']] = c_data['crumb']
+                
+                # 2. 构造 URL
+                # 对于 Pipeline，最稳妥的方法是直接拼接到 URL 后面
                 endpoint = "buildWithParameters" if params else "build"
-                url = f"{self.base_url}/job/{job_name}/{endpoint}"
+                url = f"{base}/job/{job_name}/{endpoint}"
+
+                # 3. 发送 POST 请求
+                # 注意：params 参数在 httpx 中会处理成 URL 查询参数 (Query Params)
+                jenkins_params = {"parameter": [{"name": k, "value": v} for k, v in params.items()]}
+            
+                payload = {
+                    "json": json.dumps(jenkins_params),
+                    **params
+                }
+
+                # 3. 发送请求
+                response = await client.post(
+                    url, 
+                    auth=self.auth, 
+                    data=payload,
+                    headers=headers, 
+                    timeout=10.0
+                )
                 
-                # Jenkins requires POST for build
-                response = await client.post(url, auth=self.auth, params=params, timeout=10.0)
-                
-                if response.status_code == 201:
-                    # Created (In queue)
-                    # We might want to get the queue item location to track it, but for now just return success
+                if response.status_code in [200, 201]:
                     return True
-                
-                print(f"Failed to trigger job {job_name}: {response.status_code} {response.text}")
+                print(f"Failed: {response.status_code}")
                 return False
             except Exception as e:
-                print(f"Error triggering Jenkins job: {e}")
+                print(f"Error: {e}")
                 return False
 
     async def get_build_info(self, job_name: str, build_number: int):

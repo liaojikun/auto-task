@@ -68,7 +68,20 @@ class TaskExecution(SQLModel, table=True):
     duration: Optional[int] = None
     allure_report_url: Optional[str] = None
     should_notify: bool = Field(default=False)
+    
+    execution_env: Optional[str] = None
+    suite_stats: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    triggered_by: Optional[str] = None
+
     stats: Optional[Dict[str, int]] = Field(default=None, sa_column=Column(JSON))
     
     # Relationships
     template: Optional[TestTemplate] = Relationship(back_populates="executions")
+
+class SystemConfig(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    type_name: str = Field(index=True)
+    name: str
+    value: str
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)

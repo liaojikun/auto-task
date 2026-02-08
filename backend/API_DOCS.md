@@ -136,6 +136,7 @@ Manually trigger a test template.
     ```
     *   `env`: Optional. Defaults to template's `default_env`.
 *   **Response**: `TaskExecution` object (Status: `QUEUED`).
+    *   Includes new fields: `execution_env`, `suite_stats` (null initially), `triggered_by`.
 
 ### 3.2 List Running Tasks
 Get currently active tasks (QUEUED or RUNNING).
@@ -205,3 +206,42 @@ Calculate upcoming execution times for a Cron expression.
     }
     ```
 *   **Response**: List of ISO 8601 Datetime strings.
+
+---
+
+## 5. System Config Module
+Manage system global configurations (e.g., Environment names, Jenkins Job names).
+
+### 5.1 Create System Config
+Add a new configuration item.
+
+*   **URL**: `/system-configs/`
+*   **Method**: `POST`
+*   **Request Body**:
+    ```json
+    {
+      "type_name": "ENV",
+      "name": "production",
+      "value": "prod",
+      "created_by": "admin"
+    }
+    ```
+
+### 5.2 List System Configs
+Get all configurations grouped by type.
+
+*   **URL**: `/system-configs/`
+*   **Method**: `GET`
+*   **Response**:
+    ```json
+    {
+      "data": [
+        {
+          "ENV": ["prod", "uat", "sit", "dev"]
+        },
+        {
+          "JOB_NAME": ["backend-test", "frontend-test"]
+        }
+      ]
+    }
+    ```

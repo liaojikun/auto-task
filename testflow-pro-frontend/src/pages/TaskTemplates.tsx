@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileJson, Bell, Trash2, Edit2, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { templateApi } from '../api/templates';
+import { systemConfigApi } from '../api/systemConfig'; // Import system config API
 import type { CreateTemplateParams } from '../api/templates';
 import type { TestTemplate } from '../api/types';
 
@@ -11,14 +12,18 @@ export const TaskTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<TestTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   
+  // State for dropdown options
+  const [envOptions, setEnvOptions] = useState<string[]>([]);
+  const [jobOptions, setJobOptions] = useState<string[]>([]);
+
   // Form State
   const [formData, setFormData] = useState<CreateTemplateParams>({
     name: '',
     jenkins_job_name: '',
-    default_env: 'dev',
+    default_env: '',
     params: '{}',
     auto_notify: true,
-    available_envs: ['dev', 'sit', 'uat', 'prod'], // Default assumption
+    available_envs: ['dev', 'sit', 'uat', 'prod'], // This could also be dynamic if needed, but sticking to requirement for now
     notification_ids: []
   });
 
@@ -26,7 +31,7 @@ export const TaskTemplates: React.FC = () => {
     setFormData({
       name: '',
       jenkins_job_name: '',
-      default_env: 'dev',
+      default_env: '',
       params: '{}',
       auto_notify: true,
       available_envs: ['dev', 'sit', 'uat', 'prod'],
@@ -47,8 +52,29 @@ export const TaskTemplates: React.FC = () => {
     }
   };
 
+  const fetchSystemConfigs = async () => {
+    try {
+      const response = await systemConfigApi.getAll();
+      // response.data is [{"ENV": [...]}, {"JOB_NAME": [...]}]
+      
+      const envData = response.data.find(item => item["ENV"]);
+      if (envData) {
+        setEnvOptions(envData["ENV"]);
+      }
+
+      const jobData = response.data.find(item => item["JOB_NAME"]);
+      if (jobData) {
+        setJobOptions(jobData["JOB_NAME"]);
+      }
+
+    } catch (error) {
+      console.error("Failed to fetch system configs", error);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
+    fetchSystemConfigs();
   }, []);
 
   const handleSave = async () => {
@@ -77,7 +103,7 @@ export const TaskTemplates: React.FC = () => {
       params: template.params || '{}',
       auto_notify: template.auto_notify,
       available_envs: template.available_envs || ['dev', 'sit', 'uat','prod'],
-      notification_ids: [] // Assuming notification_ids are not returned by getAll yet or handled separately
+      notification_ids: [] 
     });
     setIsCreating(true);
   };
@@ -229,13 +255,16 @@ export const TaskTemplates: React.FC = () => {
                 
                 <div className="space-y-2">
                    <label className="text-sm font-medium text-slate-700">Jenkins Job Name</label>
-                   <input 
-                    type="text" 
+                   <select
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-mono" 
-                    placeholder="job-name-in-jenkins" 
                     value={formData.jenkins_job_name}
                     onChange={e => setFormData({...formData, jenkins_job_name: e.target.value})}
-                   />
+                   >
+                     <option value="" disabled>选择关联的 Job</option>
+                     {jobOptions.map(job => (
+                       <option key={job} value={job}>{job}</option>
+                     ))}
+                   </select>
                 </div>
 
                 <div className="space-y-2">
@@ -245,10 +274,10 @@ export const TaskTemplates: React.FC = () => {
                     value={formData.default_env}
                     onChange={e => setFormData({...formData, default_env: e.target.value})}
                    >
-                      <option value="dev">Dev</option>
-                      <option value="sit">SIT</option>
-                      <option value="uat">UAT</option>
-                      <option value="prod">Prod</option>
+                      <option value="" disabled>选择环境</option>
+                      {envOptions.map(env => (
+                        <option key={env} value={env}>{env}</option>
+                      ))}
                    </select>
                 </div>
 
