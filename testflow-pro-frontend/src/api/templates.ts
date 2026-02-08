@@ -30,10 +30,4 @@ export const templateApi = {
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/templates/${id}`);
   },
-
-  trigger: async (templateId: number, env: string, auto_notify?: boolean): Promise<{ taskId: number }> => {
-    // Correct endpoint based on API_DOCS: /dashboard/trigger
-    const response = await apiClient.post<{ taskId: number }>('/dashboard/trigger', { template_id: templateId, env, auto_notify });
-    return response.data;
-  }
 };

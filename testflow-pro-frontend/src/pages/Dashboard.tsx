@@ -4,9 +4,10 @@ import {
   Loader2,
   Search, User, ChevronLeft, ChevronRight, Send 
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDuration } from '../lib/utils';
 import { templateApi } from '../api/templates';
 import { systemConfigApi } from '../api/systemConfig';
+import { dashboardApi } from '../api/dashboard';
 import type { TestTemplate } from '../api/types';
 
 // --- Types & Mock Data ---
@@ -20,6 +21,7 @@ interface TaskResult {
   env: string;
   time: string;
   triggeredBy: string;
+  reportUrl?: string;
   stats: { total: number; passed: number; failed: number; skipped: number };
 }
 
@@ -27,24 +29,6 @@ const RUNNING_TASKS = [
   { id: 101, name: 'Smoke Test', buildId: '#452', status: 'running', progress: 65, env: 'dev', startTime: '10:00:00' },
   { id: 102, name: 'Mobile App E2E', buildId: '#89', status: 'queued', progress: 0, env: 'android', startTime: '10:05:00' },
 ];
-
-// Generate more mock data for pagination
-const COMPLETED_TASKS: TaskResult[] = Array.from({ length: 25 }).map((_, i) => ({
-  id: 100 - i,
-  name: i % 3 === 0 ? 'Backend API Regression' : i % 3 === 1 ? 'Frontend E2E Daily' : 'Payment Service Security',
-  buildId: `#${120 - i}`,
-  status: i % 5 === 0 ? 'failure' : 'success', // 20% fail rate
-  duration: `${5 + (i % 10)}m`,
-  env: ['dev', 'sit', 'uat', 'prod'][i % 4],
-  time: '2026-02-07 09:30:00',
-  triggeredBy: i % 2 === 0 ? 'admin' : 'qa-engineer',
-  stats: { 
-    total: 50 + i, 
-    passed: i % 5 === 0 ? 48 + i : 50 + i, 
-    failed: i % 5 === 0 ? 2 : 0, 
-    skipped: i % 10 === 0 ? 2 : 0
-  }
-}));
 
 export const Dashboard: React.FC = () => {
   // --- Quick Trigger State ---
@@ -56,18 +40,20 @@ export const Dashboard: React.FC = () => {
   const [envOptions, setEnvOptions] = useState<string[]>([]); // New state for environment options
 
   // --- History State ---
+  const [recentTasks, setRecentTasks] = useState<TaskResult[]>([]);
   const [searchTask, setSearchTask] = useState('');
   const [searchUser, setSearchUser] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 10;
 
-  // Fetch Templates and System Configs
+  // Fetch Templates, System Configs, and Recent Tasks
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [templatesData, systemConfigData] = await Promise.all([
+        const [templatesData, systemConfigData, recentHistory] = await Promise.all([
           templateApi.getAll(),
-          systemConfigApi.getAll()
+          systemConfigApi.getAll(),
+          dashboardApi.getRecentTasks()
         ]);
 
         setTemplates(templatesData);
@@ -81,6 +67,38 @@ export const Dashboard: React.FC = () => {
         if (envData) {
           setEnvOptions(envData["ENV"]);
         }
+
+        // Map backend tasks to frontend TaskResult
+        const mappedTasks: TaskResult[] = recentHistory.items.map(task => {
+          // Format ISO date to YYYY-MM-DD HH:mm:ss
+          const date = new Date(task.start_time);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const seconds = String(date.getSeconds()).padStart(2, '0');
+          const formattedTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+          return {
+            id: task.id,
+            name: task.template_name || `Task #${task.id}`,
+            buildId: task.build_number ? `#${task.build_number}` : '#-',
+            status: task.status === 'SUCCESS' ? 'success' : 'failure', 
+            duration: formatDuration(task.duration || task.stats?.time?.duration || 0),
+            env: task.execution_env,
+            time: formattedTime,
+            triggeredBy: task.triggered_by || 'Unknown',
+            reportUrl: task.allure_report_url,
+            stats: {
+              total: task.stats?.statistic?.total || 0,
+              passed: task.stats?.statistic?.passed || 0,
+              failed: task.stats?.statistic?.failed || 0,
+              skipped: task.stats?.statistic?.skipped || 0
+            }
+          };
+        });
+        setRecentTasks(mappedTasks);
 
       } catch (error) {
         console.error("Failed to fetch initial data", error);
@@ -104,7 +122,7 @@ export const Dashboard: React.FC = () => {
     if (!selectedTemplateId) return;
     try {
       setTriggering(true);
-      await templateApi.trigger(Number(selectedTemplateId), selectedEnv, autoNotify);
+      await dashboardApi.trigger(Number(selectedTemplateId), selectedEnv, autoNotify);
       alert('任务已触发');
       // Ideally refresh running tasks list here
     } catch (error) {
@@ -114,9 +132,17 @@ export const Dashboard: React.FC = () => {
       setTriggering(false);
     }
   };
+  
+  const handleViewReport = (url?: string) => {
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      alert('报告尚未生成或不可用');
+    }
+  };
 
   // Filter & Pagination Logic
-  const filteredTasks = COMPLETED_TASKS.filter(task => 
+  const filteredTasks = recentTasks.filter(task => 
     task.name.toLowerCase().includes(searchTask.toLowerCase()) &&
     task.triggeredBy.toLowerCase().includes(searchUser.toLowerCase())
   );
@@ -374,7 +400,11 @@ export const Dashboard: React.FC = () => {
                               </td>
                               <td className="px-4 py-3 text-right">
                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-md transition-all" title="查看报告">
+                                    <button 
+                                      onClick={() => handleViewReport(task.reportUrl)}
+                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-md transition-all" 
+                                      title="查看报告"
+                                    >
                                        <FileText size={13} />
                                     </button>
                                     <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-md transition-all" title="发送报告">

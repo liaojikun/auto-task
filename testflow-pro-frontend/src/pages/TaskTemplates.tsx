@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileJson, Bell, Trash2, Edit2, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { templateApi } from '../api/templates';
+import { dashboardApi } from '../api/dashboard'; // Import dashboardApi
 import { systemConfigApi } from '../api/systemConfig'; // Import system config API
 import type { CreateTemplateParams } from '../api/templates';
 import type { TestTemplate } from '../api/types';
@@ -91,6 +92,17 @@ export const TaskTemplates: React.FC = () => {
     } catch (error) {
       console.error("Failed to save template", error);
       alert(editingId ? "更新失败，请检查输入" : "创建失败，请检查输入");
+    }
+  };
+
+  const handleTrigger = async (template: TestTemplate) => {
+    if (!confirm(`确定要立即执行模板 "${template.name}" 吗？\n环境: ${template.default_env}`)) return;
+    try {
+      await dashboardApi.trigger(template.id, template.default_env, template.auto_notify);
+      alert('任务已成功触发');
+    } catch (error) {
+      console.error("Failed to trigger task", error);
+      alert('触发失败');
     }
   };
 
@@ -196,7 +208,11 @@ export const TaskTemplates: React.FC = () => {
                        </td>
                        <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors" title="立即执行">
+                             <button 
+                                onClick={() => handleTrigger(template)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors" 
+                                title="立即执行"
+                             >
                                 <Play size={16} />
                              </button>
                              <button 

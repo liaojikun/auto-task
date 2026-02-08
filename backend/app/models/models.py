@@ -75,7 +75,7 @@ class TaskExecution(SQLModel, table=True):
     jenkins_queue_item_url: Optional[str] = None
     template_name: Optional[str] = None
 
-    stats: Optional[Dict[str, int]] = Field(default=None, sa_column=Column(JSON))
+    stats: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     
     # Relationships
     template: Optional[TestTemplate] = Relationship(back_populates="executions")
