@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Use relative path for production (Nginx proxy) or fallback to env var/localhost for dev
+const baseURL = import.meta.env.PROD ? '/api/v1' : (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1');
+
 const apiClient = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/v1',
+  baseURL: baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
