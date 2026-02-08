@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: testflow-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=TestFlow Pro API
+      # === 数据库配置 (请修改为您的真实数据库信息) ===
+      - DB_HOST=192.168.1.100   # 您的数据库服务器IP
+      - DB_PORT=3306            # 数据库端口
+      - DB_USER=auto            # 数据库用户名
+      - DB_PASS=ts8SAzAM8YdTsPec # 数据库密码
+      - DB_NAME=auto            # 数据库名称
+      # ================================================
+      - JENKINS_URL=http://192.168.1.100:8080 # Jenkins 地址
+      - JENKINS_USER=admin
+      - JENKINS_PASS=admin
+    networks:
+      - testflow-net
+    # 如果您的数据库在宿主机上，可能需要添加以下配置 (Linux):
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./testflow-pro-frontend
+      dockerfile: Dockerfile
+    container_name: testflow-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - testflow-net
+
+networks:
+  testflow-net:
+    driver: bridge
