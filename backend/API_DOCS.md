@@ -136,13 +136,14 @@ Manually trigger a test template.
     ```
     *   `env`: Optional. Defaults to template's `default_env`.
 *   **Response**: `TaskExecution` object (Status: `QUEUED`).
-    *   Includes new fields: `execution_env`, `suite_stats` (null initially), `triggered_by`.
+    *   Includes new fields: `execution_env`, `suite_stats` (null initially), `triggered_by`, `template_name`.
 
 ### 3.2 List Running Tasks
 Get currently active tasks (QUEUED or RUNNING).
 
 *   **URL**: `/dashboard/running`
 *   **Method**: `GET`
+*   **Response**: `List[TaskExecution]`
 
 ### 3.3 Get Recent History
 Get the most recent execution history.
@@ -150,6 +151,7 @@ Get the most recent execution history.
 *   **URL**: `/dashboard/recent`
 *   **Method**: `GET`
 *   **Query Params**: `limit` (default 20).
+*   **Response**: `List[TaskExecution]`
 
 ---
 

@@ -46,18 +46,58 @@ class StatusPoller:
             template = await session.get(TestTemplate, task.template_id)
             if not template:
                 continue
-
-            last_build = await jenkins_service.get_build_info(template.jenkins_job_name, "lastBuild")
-            if last_build:
-                build_number = last_build.get("number")
-                task.build_number = build_number
-                task.status = TaskStatus.RUNNING
+            
+            # If we have a queue URL, check it specifically
+            if task.jenkins_queue_item_url:
+                queue_info = await jenkins_service.get_queue_item_info(task.jenkins_queue_item_url)
                 
-                if "timestamp" in last_build:
-                    task.start_time = datetime.fromtimestamp(last_build["timestamp"] / 1000)
+                if queue_info:
+                    # Check if it has an executable (means it started building)
+                    if queue_info.get("executable"):
+                        task.build_number = queue_info["executable"].get("number")
+                        task.status = TaskStatus.RUNNING
+                        # We could fetch start time from the build info here or wait for running processor
+                        session.add(task)
+                        await session.commit()
+                    elif queue_info.get("cancelled"):
+                        task.status = TaskStatus.ABORTED
+                        session.add(task)
+                        await session.commit()
+                    # Else: still in queue, do nothing
+                else:
+                    # Queue item not found (404), maybe it finished queueing very quickly?
+                    # Fallback: Check recent builds to see if we can match the queue ID
+                    # Extract queue ID from URL: .../queue/item/123/ -> 123
+                    try:
+                        q_id = int(task.jenkins_queue_item_url.strip("/").split("/")[-1])
+                        # Get recent builds (e.g. last 5)
+                        job_info = await jenkins_service.get_jobs() # This is too broad, need specific job details
+                        # Actually we need get_build_info loop
+                        # Let's just check the last few builds
+                        # Optimization: Just check lastBuild for now as a quick fix if it matches
+                        last_build = await jenkins_service.get_build_info(template.jenkins_job_name, "lastBuild")
+                        if last_build and last_build.get("queueId") == q_id:
+                             task.build_number = last_build.get("number")
+                             task.status = TaskStatus.RUNNING
+                             session.add(task)
+                             await session.commit()
+                    except Exception as e:
+                        logger.error(f"Error handling missing queue item for task {task.id}: {e}")
 
-                session.add(task)
-                await session.commit()
+            else:
+                # Old behavior fallback (or if trigger failed to save URL)
+                # This is prone to the original race condition, but kept for legacy compat
+                last_build = await jenkins_service.get_build_info(template.jenkins_job_name, "lastBuild")
+                if last_build:
+                    # Basic check: if last build is running, assume it's ours? 
+                    # Dangerous, but better than stuck.
+                    # A better heuristic: is the start time AFTER our task creation?
+                    build_time = last_build.get("timestamp", 0) / 1000
+                    if build_time > task.start_time.timestamp():
+                        task.build_number = last_build.get("number")
+                        task.status = TaskStatus.RUNNING
+                        session.add(task)
+                        await session.commit()
 
     async def _process_running_tasks(self, session: AsyncSession):
         result = await session.execute(

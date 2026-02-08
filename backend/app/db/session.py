@@ -44,3 +44,11 @@ async def init_db():
             await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN triggered_by VARCHAR(255)"))
         except Exception:
             pass
+        try:
+            await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN jenkins_queue_item_url VARCHAR(512)"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE taskexecution ADD COLUMN template_name VARCHAR(255)"))
+        except Exception:
+            pass

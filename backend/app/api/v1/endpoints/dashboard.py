@@ -46,7 +46,8 @@ async def trigger_task(
         trigger_type=TriggerType.MANUAL,
         should_notify=should_notify,
         execution_env=target_env,
-        triggered_by="admin"  # Placeholder
+        triggered_by="admin",  # Placeholder
+        template_name=template.name
     )
     session.add(execution)
     await session.commit()
@@ -60,10 +61,13 @@ async def trigger_task(
     
     job_params["env"] = target_env
     
-    success = await jenkins_service.trigger_job(template.jenkins_job_name, job_params)
+    queue_url = await jenkins_service.trigger_job(template.jenkins_job_name, job_params)
     
-    if success:
-        pass 
+    if queue_url:
+        execution.jenkins_queue_item_url = queue_url
+        session.add(execution)
+        await session.commit()
+        await session.refresh(execution)
     else:
         execution.status = TaskStatus.FAILURE
         execution.duration = 0

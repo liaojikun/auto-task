@@ -56,12 +56,13 @@ class JenkinsService:
                 )
                 
                 if response.status_code in [200, 201]:
-                    return True
+                    # Return the queue item location header
+                    return response.headers.get("Location")
                 print(f"Failed: {response.status_code}")
-                return False
+                return None
             except Exception as e:
                 print(f"Error: {e}")
-                return False
+                return None
 
     async def get_build_info(self, job_name: str, build_number: int):
         """Get details of a specific build."""
@@ -77,8 +78,20 @@ class JenkinsService:
                 print(f"Error fetching build info: {e}")
                 return None
                 
-    async def get_queue_item(self, queue_url: str):
-        """Check queue item to get build number when it starts."""
-        pass # To be implemented if we want exact tracking from trigger
+    async def get_queue_item_info(self, queue_url: str):
+        """Fetch queue item details to find the build number."""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Append api/json to the queue URL (which usually ends with /)
+                url = f"{queue_url.rstrip('/')}/api/json"
+                response = await client.get(url, auth=self.auth, timeout=10.0)
+                if response.status_code == 404:
+                     # Item might have left the queue long ago or invalid URL
+                    return None
+                response.raise_for_status()
+                return response.json()
+            except Exception as e:
+                print(f"Error fetching queue item: {e}")
+                return None
 
 jenkins_service = JenkinsService()
