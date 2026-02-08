@@ -64,7 +64,7 @@ class TaskExecution(SQLModel, table=True):
     build_number: Optional[int] = None
     status: TaskStatus = TaskStatus.QUEUED
     trigger_type: TriggerType
-    start_time: datetime = Field(default_factory=datetime.utcnow)
+    start_time: datetime = Field(default_factory=datetime.now)
     duration: Optional[int] = None
     allure_report_url: Optional[str] = None
     should_notify: bool = Field(default=False)
@@ -86,4 +86,4 @@ class SystemConfig(SQLModel, table=True):
     name: str
     value: str
     created_by: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)

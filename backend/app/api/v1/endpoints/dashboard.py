@@ -29,7 +29,7 @@ async def trigger_task(
         raise HTTPException(status_code=404, detail="Template not found")
 
     # Update last_used
-    template.last_used = datetime.utcnow()
+    template.last_used = datetime.now()
     session.add(template)
     # We commit later with execution
 
